@@ -1,0 +1,10 @@
+streamlit
+scikit-learn
+pandas
+numpy
+requests
+beautifulsoup4
+lxml
+matplotlib
+twilio
+joblib
