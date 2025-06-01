@@ -1,45 +1,56 @@
 import streamlit as st
 import requests
 from requests.auth import _basic_auth_str
+from datetime import datetime
 
 # Load credentials
 API_USERNAME = st.secrets["RACING_API_USERNAME"]
 API_PASSWORD = st.secrets["RACING_API_PASSWORD"]
 
-st.title("🏇 UK Racecourse Lookup (Racing API)")
-st.markdown("🔍 Fetching UK racecourses from The Racing API...")
+st.title("🏇 UK Racecard Viewer (Racing API)")
+st.markdown("🔍 Pulling UK racecourses and live racecards...")
 
 auth_header = _basic_auth_str(API_USERNAME, API_PASSWORD)
-st.text(f"📡 Sending header: {auth_header[:30]}...")
+headers = { "Authorization": auth_header }
 
-headers = {
-    "Authorization": auth_header
-}
+# Step 1: Fetch all UK racecourses
+course_url = "https://api.theracingapi.com/v1/courses?region_codes=gb"
+response = requests.get(course_url, headers=headers)
 
-api_url = "https://api.theracingapi.com/v1/courses?region_codes=gb"
+if response.status_code != 200:
+    st.error(f"Failed to load courses: {response.status_code} - {response.text}")
+    st.stop()
 
-response = requests.get(api_url, headers=headers)
+courses = response.json().get("courses", [])
+if not courses:
+    st.warning("No courses found.")
+    st.stop()
 
-if response.status_code == 200:
-    courses = response.json().get("courses", [])
-    if not courses:
-        st.warning("No UK racecourses found.")
-        st.subheader("🔎 Raw API Response:")
-        st.json(response.json())
-    else:
-        st.success(f"✅ Found {len(courses)} UK racecourses.")
-        st.markdown("### 🔍 Sample Raw Data")
-        st.json(courses[:3])  # Show sample raw entries
+# Dropdown to select course
+course_map = {{course["course"]: course["id"] for course in courses}}
+selected_course = st.selectbox("Select a UK Racecourse", list(course_map.keys()))
+course_id = course_map[selected_course]
 
-        table = [
-            {
-                "Course": c.get("course", "N/A"),
-                "Region": c.get("region", "N/A"),
-                "ID": c.get("id", "N/A")
-            }
-            for c in courses
-        ]
-        st.markdown("### 📋 Racecourse Table")
-        st.dataframe(table)
+# Use today's date
+today_str = datetime.today().strftime("%Y-%m-%d")
+
+# Step 2: Fetch racecards for selected course and today
+racecard_url = f"https://api.theracingapi.com/v1/racecards?date={{today_str}}&course_id={{course_id}}"
+st.markdown(f"📅 Fetching races for **{{selected_course}}** on **{{today_str}}**")
+
+race_response = requests.get(racecard_url, headers=headers)
+
+if race_response.status_code != 200:
+    st.error(f"Failed to fetch racecards: {{race_response.status_code}} - {{race_response.text}}")
+    st.stop()
+
+racecards = race_response.json().get("racecards", [])
+
+if not racecards:
+    st.warning(f"No races found for {{selected_course}} on {{today_str}}.")
+    st.json(race_response.json())
 else:
-    st.error(f"Failed to fetch courses: {response.status_code} - {response.text}")
+    st.success(f"✅ Found {{len(racecards)}} races.")
+    for race in racecards:
+        st.subheader(race.get("race_name", "Unnamed Race"))
+        st.write(f"**Off Time:** {{race.get('off_time')}} | **Distance:** {{race.get('distance')}} | **Region:** {{race.get('region')}}")
