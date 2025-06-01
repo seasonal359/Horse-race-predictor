@@ -31,12 +31,9 @@ course_map = {course["course"]: course["id"] for course in courses}
 selected_course = st.selectbox("Select a UK Racecourse", list(course_map.keys()))
 course_id = course_map[selected_course]
 
-# Use today's date
-today_str = datetime.today().strftime("%Y-%m-%d")
-
-# Step 2: Fetch racecards for selected course and today
-racecard_url = f"https://api.theracingapi.com/v1/racecards?date={today_str}&course_id={course_id}"
-st.markdown(f"📅 Fetching races for **{selected_course}** on **{today_str}**")
+# Step 2: Fetch racecards for selected course
+racecard_url = f"https://api.theracingapi.com/v1/racecards?course_id={course_id}"
+st.markdown(f"📅 Fetching races for **{selected_course}**")
 
 race_response = requests.get(racecard_url, headers=headers)
 
@@ -47,7 +44,7 @@ if race_response.status_code != 200:
 racecards = race_response.json().get("racecards", [])
 
 if not racecards:
-    st.warning(f"No races found for {selected_course} on {today_str}.")
+    st.warning(f"No races found for {selected_course}.")
     st.json(race_response.json())
 else:
     st.success(f"✅ Found {len(racecards)} races.")
