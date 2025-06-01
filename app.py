@@ -1,44 +1,48 @@
 
 import streamlit as st
 import requests
-import pandas as pd
-from datetime import datetime
+import base64
+import os
 
 st.title("🇬🇧 UK Racecard Viewer (Racing API)")
 st.write("🔍 Fetching UK race data from The Racing API...")
 
-# ✅ Correct way to access Streamlit secrets
-username = st.secrets.get("RACING_API_USERNAME")
-password = st.secrets.get("RACING_API_PASSWORD")
+# Read secrets from Streamlit
+username = st.secrets.get("username")
+password = st.secrets.get("password")
 
 if not username or not password:
-    st.error("❌ Missing API credentials. Set them in Streamlit secrets.")
-    st.stop()
-
-import base64
-auth_str = f"{username}:{password}"
-auth_header = "Basic " + base64.b64encode(auth_str.encode()).decode()
-
-headers = {
-    "Authorization": auth_header
-}
-
-today = datetime.today().strftime("%Y-%m-%d")
-url = f"https://api.theracingapi.com/racecards?region=gb&date={today}"
-st.write(f"📡 Sending header: {auth_header[:40]}...")
-
-response = requests.get(url, headers=headers)
-if response.status_code != 200:
-    st.error(f"Failed to fetch data: {response.status_code} - {response.text}")
-    st.stop()
-
-data = response.json()
-racecards = data.get("racecards", [])
-
-if not racecards:
-    st.warning("No UK races found in API response.")
+    st.error("Missing API credentials.")
 else:
-    st.success(f"✅ Found {len(racecards)} races.")
-    for race in racecards[:5]:
-        st.subheader(f"{race['course']} - {race['race_name']}")
-        st.write(f"Off Time: {race['off_time']} | Distance: {race['distance']}")
+    credentials = f"{username}:{password}"
+    auth_header = base64.b64encode(credentials.encode()).decode()
+    st.write(f"📡 Sending header: Basic {auth_header[:30]}...")
+
+    url = "https://api.theracingapi.com/v1/racecards"
+    headers = {
+        "Authorization": f"Basic {auth_header}"
+    }
+    params = {
+        "region_codes": "gb"
+    }
+
+    response = requests.get(url, headers=headers, params=params)
+    if response.status_code != 200:
+        st.error(f"Failed to fetch data: {response.status_code} - {response.text}")
+    else:
+        data = response.json()
+        racecards = data.get("racecards", [])
+        if not racecards:
+            st.warning("No UK races found today.")
+        else:
+            for race in racecards:
+                st.subheader(race.get("race_name", "Unnamed Race"))
+                st.markdown(f"**Course:** {race.get('course')}  
+"
+                            f"**Off Time:** {race.get('off_time')}  
+"
+                            f"**Type:** {race.get('type')}  
+"
+                            f"**Distance:** {race.get('distance')}  
+"
+                            f"**Going:** {race.get('going')}")
