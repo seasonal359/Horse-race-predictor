@@ -26,6 +26,8 @@ if response.status_code == 200:
     races = data.get("races", [])
     if not races:
         st.warning("No races found in API response.")
+        st.subheader("🔎 Raw API Response:")
+        st.json(data)
     else:
         st.success("Races loaded successfully.")
         for race in races[:10]:
