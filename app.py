@@ -44,13 +44,11 @@ def parse_horse_row(row):
     if len(cols) < 3:
         return None
     try:
-        text_cols = [col.get_text(strip=True) for col in cols]
-        logging.info(f"Row contents: {text_cols}")
-
-        name = next((col for col in text_cols if len(col) > 3 and not col.replace('.', '', 1).isdigit()), "Horse")
-        jockey = text_cols[-2] if len(text_cols) >= 2 else "Unknown"
-        odds_text = text_cols[-1] if len(text_cols) else ""
-        odds = float(odds_text.replace("-1", "10")) if odds_text.replace('.', '', 1).isdigit() else np.random.uniform(3, 10)
+        # Scan text content of all columns
+        texts = [c.get_text(strip=True) for c in cols if c.get_text(strip=True)]
+        name = next((t for t in texts if any(x.isalpha() for x in t) and len(t) > 3), "Unknown")
+        jockey = next((t for t in texts[::-1] if "" not in t and not any(char.isdigit() for char in t) and len(t) > 4), "Unknown")
+        odds = next((float(t) for t in texts[::-1] if t.replace('.', '', 1).isdigit()), np.random.uniform(3, 10))
 
         return {
             "name": name,
@@ -64,8 +62,8 @@ def parse_horse_row(row):
             "speed": np.random.uniform(85, 100),
             "class_rating": np.random.uniform(75, 90)
         }
-    except:
-        logging.exception("Failed to parse row")
+    except Exception as e:
+        logging.exception("Failed to parse horse row")
         return None
 
 # --- Step 1: Scrape Real-Time Data from Equibase Public Page ---
@@ -93,6 +91,7 @@ def get_equibase_data(track_code="BEL", race_date=None):
                 horses = []
                 rows = table.find_all("tr")[1:]
                 for row in rows:
+                    st.code(str(row), language='html')
                     horse = parse_horse_row(row)
                     if horse:
                         horses.append(horse)
