@@ -1,35 +1,42 @@
+# Streamlit App using rp_us scraper
+
 import streamlit as st
-from rpscrape.rp import RP
 import pandas as pd
+from datetime import datetime
+from rp_us import get_race_links, get_race_horses, TRACK_CODES
 
-st.title("🏇 Horse Race Predictor - UK/Global Debug Mode")
-st.markdown("### 🔍 Pulling all available races from rpscrape...")
+st.set_page_config(page_title="🏇 US Race Predictor Debug", layout="wide")
+st.title("🏇 US Thoroughbred Race Scraper (Racing Post)")
 
-rp = RP()
-cards = rp.get_racecards()
+st.markdown("""
+This app pulls **live racecards** from [RacingPost.com](https://www.racingpost.com) using a custom U.S. track scraper.
+Use the dropdown to choose a track and date, then see horses + odds.
+""")
 
-# Show all cards regardless of country
-st.write("### Raw racecards from RP", cards)
+# --- Sidebar Options ---
+today_str = datetime.today().strftime("%Y-%m-%d")
+st.sidebar.header("Race Selection")
+race_date = st.sidebar.text_input("Race Date (YYYY-MM-DD)", value=today_str)
+track_name = st.sidebar.selectbox("Select U.S. Track", list(TRACK_CODES.keys()))
 
-if not cards:
-    st.error("❌ No racecards found from rpscrape.")
-else:
-    # Show races with track + time
-    race_options = [
-        f"{card['meeting']} - {card['time']} - {card['race_id']}"
-        for card in cards
-    ]
-    selected_label = st.selectbox("Select a race", race_options)
+# --- Fetch Races ---
+races = get_race_links(track_name, race_date)
+if not races:
+    st.error(f"❌ No races found for {track_name} on {race_date}.")
+    st.stop()
 
-    if selected_label:
-        # Extract race_id from label
-        selected_id = selected_label.split(" - ")[-1]
-        race = rp.get_racecard(selected_id)
+race_labels = [f"{r[1]} - {r[0]}" for r in races]  # time - race name
+selected_label = st.sidebar.selectbox("Choose Race", race_labels)
 
-        st.markdown(f"### Race Info for ID `{selected_id}`")
+if selected_label:
+    selected_index = race_labels.index(selected_label)
+    race_name, race_time, race_url = races[selected_index]
+    st.subheader(f"📍 {track_name} | {race_name} | {race_time}")
+    st.write(f"[🔗 View on Racing Post]({race_url})")
 
-        if "horses" in race:
-            df = pd.DataFrame(race["horses"])
-            st.dataframe(df)
-        else:
-            st.warning("No horses found in this race.")
+    horses = get_race_horses(race_url)
+    if not horses:
+        st.warning("No horses returned for this race.")
+    else:
+        df = pd.DataFrame(horses)
+        st.dataframe(df, use_container_width=True)
