@@ -1,53 +1,61 @@
 import streamlit as st
 import requests
-from requests.auth import _basic_auth_str
+from requests.auth import HTTPBasicAuth
 from datetime import datetime
 
-# Load credentials
 API_USERNAME = st.secrets["RACING_API_USERNAME"]
 API_PASSWORD = st.secrets["RACING_API_PASSWORD"]
 
 st.title("🏇 UK Racecard Viewer (Racing API)")
-st.markdown("🔍 Pulling UK racecourses and live racecards...")
+st.markdown("🔍 Fetching UK tracks with races today...")
 
-auth_header = _basic_auth_str(API_USERNAME, API_PASSWORD)
-headers = { "Authorization": auth_header }
+auth = HTTPBasicAuth(API_USERNAME, API_PASSWORD)
 
-# Step 1: Fetch all UK racecourses
+# Step 1: Fetch all UK courses
 course_url = "https://api.theracingapi.com/v1/courses?region_codes=gb"
-response = requests.get(course_url, headers=headers)
+resp = requests.get(course_url, auth=auth)
 
-if response.status_code != 200:
-    st.error(f"Failed to load courses: {response.status_code} - {response.text}")
+if resp.status_code != 200:
+    st.error(f"❌ Error fetching courses: {resp.status_code} - {resp.text}")
     st.stop()
 
-courses = response.json().get("courses", [])
+courses = resp.json().get("courses", [])
 if not courses:
-    st.warning("No courses found.")
+    st.warning("No UK courses found.")
     st.stop()
 
-# Dropdown to select course
-course_map = {course["course"]: course["id"] for course in courses}
-selected_course = st.selectbox("Select a UK Racecourse", list(course_map.keys()))
-course_id = course_map[selected_course]
+# Step 2: Check which courses have races today
+available_today = []
+for course in courses:
+    cid = course["id"]
+    rc_url = f"https://api.theracingapi.com/v1/racecards/by-course/{cid}"
+    r = requests.get(rc_url, auth=auth)
+    if r.status_code == 200:
+        cards = r.json().get("racecards", [])
+        if cards:
+            available_today.append((course["course"], cid))
 
-# Step 2: Fetch racecards using /by-course/{course_id}
-racecard_url = f"https://api.theracingapi.com/v1/racecards/by-course/{course_id}"
-st.markdown(f"📅 Fetching races for **{selected_course}**")
-
-race_response = requests.get(racecard_url, headers=headers)
-
-if race_response.status_code != 200:
-    st.error(f"Failed to fetch racecards: {race_response.status_code} - {race_response.text}")
+if not available_today:
+    st.warning("❌ No races scheduled at UK tracks today.")
     st.stop()
 
-racecards = race_response.json().get("racecards", [])
+# Step 3: Dropdown
+course_map = dict(available_today)
+track = st.selectbox("Select a UK Track with races today", list(course_map.keys()))
+track_id = course_map[track]
 
-if not racecards:
-    st.warning(f"No races found for {selected_course}.")
-    st.json(race_response.json())
-else:
-    st.success(f"✅ Found {len(racecards)} races.")
-    for race in racecards:
-        st.subheader(race.get("race_name", "Unnamed Race"))
-        st.write(f"**Off Time:** {race.get('off_time')} | **Distance:** {race.get('distance')} | **Region:** {race.get('region')}")
+st.markdown(f"📅 Fetching races for **{track}**...")
+
+race_url = f"https://api.theracingapi.com/v1/racecards/by-course/{track_id}"
+race_resp = requests.get(race_url, auth=auth)
+
+if race_resp.status_code != 200:
+    st.error(f"❌ Race fetch failed: {race_resp.status_code} - {race_resp.text}")
+    st.stop()
+
+races = race_resp.json().get("racecards", [])
+st.success(f"✅ Found {len(races)} races at {track}")
+
+for race in races:
+    st.subheader(race.get("race_name", "Unnamed Race"))
+    st.write(f"**Off Time:** {race.get('off_time')} | **Distance:** {race.get('distance')} | **Type:** {race.get('race_type')}")
