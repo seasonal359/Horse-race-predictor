@@ -9,7 +9,7 @@ API_PASSWORD = st.secrets["RACING_API_PASSWORD"]
 st.title("🏇 US Thoroughbred Race Viewer (Racing API)")
 st.markdown("🔍 Fetching race data from The Racing API...")
 
-# Manual header construction to match curl behavior
+# Manual header construction
 auth_header = _basic_auth_str(API_USERNAME, API_PASSWORD)
 st.text(f"📡 Sending header: {auth_header[:30]}...")
 
@@ -23,11 +23,12 @@ response = requests.get(api_url, headers=headers)
 
 if response.status_code == 200:
     data = response.json()
-    if not data:
-        st.warning("No race data available.")
+    races = data.get("races", [])
+    if not races:
+        st.warning("No races found in API response.")
     else:
         st.success("Races loaded successfully.")
-        for race in data[:10]:
+        for race in races[:10]:
             st.subheader(race.get("track_name", "Unknown Track"))
             st.write(race)
 else:
