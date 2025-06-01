@@ -11,7 +11,8 @@ import joblib
 import streamlit as st
 import logging
 
-from rpscrape import RP
+from rpscrape.rp import RP
+
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO)
