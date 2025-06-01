@@ -28,7 +28,18 @@ if response.status_code == 200:
         st.json(response.json())
     else:
         st.success(f"✅ Found {len(courses)} UK racecourses.")
-        df = [{ "Course": c["course"], "Region": c["region"], "ID": c["course_id"] } for c in courses]
-        st.dataframe(df)
+        st.markdown("### 🔍 Sample Raw Data")
+        st.json(courses[:3])  # Show 3 raw course entries
+
+        table = [
+            {
+                "Course": c.get("course", "N/A"),
+                "Region": c.get("region", "N/A"),
+                "ID": c.get("id", "N/A") or c.get("course_id", "N/A")
+            }
+            for c in courses
+        ]
+        st.markdown("### 📋 Racecourse Table")
+        st.dataframe(table)
 else:
     st.error(f"Failed to fetch courses: {response.status_code} - {response.text}")
