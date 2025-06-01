@@ -6,10 +6,9 @@ from requests.auth import _basic_auth_str
 API_USERNAME = st.secrets["RACING_API_USERNAME"]
 API_PASSWORD = st.secrets["RACING_API_PASSWORD"]
 
-st.title("🏇 US Thoroughbred Race Viewer (Racing API)")
-st.markdown("🔍 Fetching North America race data from The Racing API...")
+st.title("🏇 UK Race Viewer (Racing API)")
+st.markdown("🔍 Fetching UK race data from The Racing API...")
 
-# Manual header construction
 auth_header = _basic_auth_str(API_USERNAME, API_PASSWORD)
 st.text(f"📡 Sending header: {auth_header[:30]}...")
 
@@ -17,8 +16,7 @@ headers = {
     "Authorization": auth_header
 }
 
-# Use the North America endpoint for US/Canada data
-api_url = "https://api.theracingapi.com/v1/north-america/racecards"
+api_url = "https://api.theracingapi.com/v1/uk/racecards"
 
 response = requests.get(api_url, headers=headers)
 
@@ -27,11 +25,11 @@ if response.status_code == 200:
     racecards = data.get("racecards", [])
 
     if not racecards:
-        st.warning("No North American races found in API response.")
+        st.warning("No UK races found in API response.")
         st.subheader("🔎 Raw API Response:")
         st.json(data)
     else:
-        st.success(f"{len(racecards)} North American races loaded.")
+        st.success(f"{len(racecards)} UK races loaded.")
         for race in racecards[:10]:
             st.subheader(f"{race.get('course', 'Unknown Track')} - {race.get('race_name', '')}")
             st.write(race)
