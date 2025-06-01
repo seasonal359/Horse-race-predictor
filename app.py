@@ -31,8 +31,8 @@ course_map = {course["course"]: course["id"] for course in courses}
 selected_course = st.selectbox("Select a UK Racecourse", list(course_map.keys()))
 course_id = course_map[selected_course]
 
-# Step 2: Fetch racecards for selected course
-racecard_url = f"https://api.theracingapi.com/v1/racecards?course_id={course_id}"
+# Step 2: Fetch racecards using /by-course/{course_id}
+racecard_url = f"https://api.theracingapi.com/v1/racecards/by-course/{course_id}"
 st.markdown(f"📅 Fetching races for **{selected_course}**")
 
 race_response = requests.get(racecard_url, headers=headers)
