@@ -64,8 +64,10 @@ def parse_horse_row(row):
         return None
 
 # --- Step 1: Scrape Real-Time Data from Equibase Public Page ---
-def get_equibase_data(track_code="BEL", race_date="053124"):
+def get_equibase_data(track_code="BEL", race_date=None):
     try:
+        if not race_date:
+            race_date = datetime.datetime.today().strftime("%m%d%y")
         url = construct_equibase_url(track_code, race_date)
         logging.info(f"Fetching data from {url}")
         response = safe_request(url)
@@ -100,6 +102,11 @@ def get_equibase_data(track_code="BEL", race_date="053124"):
         logging.exception("Error scraping Equibase")
         return []
 
+# --- Helper: Get Today's Track Codes (Mock Example) ---
+def get_today_us_track_codes():
+    # Placeholder for real scraping of available track codes
+    return ["BEL", "CD", "GP", "SA", "MTH"]
+
 # --- Step 2: Load Sample Training Data ---
 def load_training_data():
     data = pd.DataFrame({
@@ -131,19 +138,20 @@ model = joblib.load("model.pkl")
 preds = model.predict(X_test)
 acc = accuracy_score(y_test, preds)
 
-st.write(f"Model accuracy on test set: {acc:.2f}")
-
 # --- Streamlit Interface for Deployment ---
 st.title("🏇 Horse Race Predictor")
-st.sidebar.header("Race Selection")
-track_code = st.sidebar.text_input("Track Code (e.g., BEL)", "BEL")
+st.sidebar.header("Track and Date Selection")
+
 race_date = st.sidebar.text_input("Race Date (MMDDYY)", datetime.datetime.today().strftime("%m%d%y"))
+track_options = get_today_us_track_codes()
+track_code = st.sidebar.selectbox("Select Track Code", track_options)
 
 if st.sidebar.button("Fetch Races"):
     data = get_equibase_data(track_code, race_date)
     if not data:
         st.error("No data found. Try different track/date.")
     else:
+        st.write(f"Model accuracy on test set: {acc:.2f}")
         for race in data:
             st.subheader(f"Race {race['race_number']} @ {race['track']}")
             df = pd.DataFrame(race['horses'])
