@@ -68,45 +68,56 @@ def get_equibase_data(track_code="BEL", race_date=None):
     try:
         if not race_date:
             race_date = datetime.datetime.today().strftime("%m%d%y")
-        url = construct_equibase_url(track_code, race_date)
-        logging.info(f"Fetching data from {url}")
-        response = safe_request(url)
+        possible_codes = [track_code]
+        if track_code == "CD":
+            possible_codes = ["CD", "CDX", "CDI"]
+        
+        for code in possible_codes:
+            url = construct_equibase_url(code, race_date)
+            logging.info(f"Trying {url}")
+            st.write(f"Checking URL: {url}")
+            response = safe_request(url)
 
-        if response.status_code != 200 or "raceEntries" not in response.text:
-            logging.warning(f"No valid raceEntries content or bad response at {url}")
-            return []
+            if response.status_code == 200 and "raceEntries" in response.text:
+                soup = BeautifulSoup(response.text, "lxml")
+                track_name = soup.find("h2").get_text(strip=True) if soup.find("h2") else "Unknown Track"
 
-        soup = BeautifulSoup(response.text, "lxml")
-        track_name = soup.find("h2").get_text(strip=True) if soup.find("h2") else "Unknown Track"
+                race_data = []
+                race_tables = soup.find_all("table", {"class": "raceEntries"})
 
-        race_data = []
-        race_tables = soup.find_all("table", {"class": "raceEntries"})
+                for race_number, table in enumerate(race_tables, start=1):
+                    horses = []
+                    rows = table.find_all("tr")[1:]
+                    for row in rows:
+                        horse = parse_horse_row(row)
+                        if horse:
+                            horses.append(horse)
 
-        for race_number, table in enumerate(race_tables, start=1):
-            horses = []
-            rows = table.find_all("tr")[1:]
-            for row in rows:
-                horse = parse_horse_row(row)
-                if horse:
-                    horses.append(horse)
+                    race_data.append({
+                        "track": track_name,
+                        "race_number": race_number,
+                        "post_time": "Unknown",
+                        "horses": horses
+                    })
+                return race_data
 
-            race_data.append({
-                "track": track_name,
-                "race_number": race_number,
-                "post_time": "Unknown",
-                "horses": horses
-            })
-
-        return race_data
+        logging.warning(f"No valid raceEntries content or successful fetch for {track_code} on {race_date}")
+        return []
 
     except Exception as e:
         logging.exception("Error scraping Equibase")
         return []
 
-# --- Helper: Get Today's Track Codes (Expanded + CD fallback) ---
+# --- Helper: Get Today's Track Codes (Expanded) ---
 def get_today_us_track_codes():
-    # Expanded list to handle Equibase inconsistencies
-    return ["CD", "CDX", "BEL", "MTH", "GP", "SA"]
+    # Expanded list with fallback codes
+    return [
+        "CD", "CDX", "CDI",  # Churchill Downs variants
+        "BEL", "MTH", "GP", "SA",  # Major tracks
+        "LRL",  # Laurel Park
+        "FG",   # Fair Grounds (Louisiana)
+        "MNR"    # Mountaineer
+    ]
 
 # --- Step 2: Load Sample Training Data ---
 def load_training_data():
