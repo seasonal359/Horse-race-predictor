@@ -1,22 +1,17 @@
 import streamlit as st
 import requests
-import os
 from requests.auth import _basic_auth_str
-from dotenv import load_dotenv
 
-load_dotenv()
-API_USERNAME = os.getenv("RACING_API_USERNAME")
-API_PASSWORD = os.getenv("RACING_API_PASSWORD")
+# Load credentials from Streamlit Cloud secrets
+API_USERNAME = st.secrets["RACING_API_USERNAME"]
+API_PASSWORD = st.secrets["RACING_API_PASSWORD"]
 
 st.title("🏇 US Thoroughbred Race Viewer (Racing API)")
 st.markdown("🔍 Fetching race data from The Racing API...")
 
-# Debug: Show a preview of the username and header
-if API_USERNAME and API_PASSWORD:
-    auth_header = _basic_auth_str(API_USERNAME, API_PASSWORD)
-    st.text(f"📡 Sending header: {auth_header[:30]}...")
-else:
-    st.error("Missing API credentials.")
+# Manual header construction to match curl behavior
+auth_header = _basic_auth_str(API_USERNAME, API_PASSWORD)
+st.text(f"📡 Sending header: {auth_header[:30]}...")
 
 headers = {
     "Authorization": auth_header
