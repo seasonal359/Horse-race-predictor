@@ -72,8 +72,9 @@ def get_equibase_data(track_code="BEL", race_date=None):
         logging.info(f"Fetching data from {url}")
         response = safe_request(url)
 
-        if response.status_code != 200:
-            raise ValueError(f"Equibase page not found for {track_code} on {race_date} (Status code: {response.status_code})")
+        if response.status_code != 200 or "raceEntries" not in response.text:
+            logging.warning(f"No valid raceEntries content or bad response at {url}")
+            return []
 
         soup = BeautifulSoup(response.text, "lxml")
         track_name = soup.find("h2").get_text(strip=True) if soup.find("h2") else "Unknown Track"
@@ -102,10 +103,10 @@ def get_equibase_data(track_code="BEL", race_date=None):
         logging.exception("Error scraping Equibase")
         return []
 
-# --- Helper: Get Today's Track Codes (Mock Example) ---
+# --- Helper: Get Today's Track Codes (Expanded + CD fallback) ---
 def get_today_us_track_codes():
-    # Placeholder for real scraping of available track codes
-    return ["BEL", "CD", "GP", "SA", "MTH"]
+    # Expanded list to handle Equibase inconsistencies
+    return ["CD", "CDX", "BEL", "MTH", "GP", "SA"]
 
 # --- Step 2: Load Sample Training Data ---
 def load_training_data():
@@ -149,7 +150,7 @@ track_code = st.sidebar.selectbox("Select Track Code", track_options)
 if st.sidebar.button("Fetch Races"):
     data = get_equibase_data(track_code, race_date)
     if not data:
-        st.error("No data found. Try different track/date.")
+        st.error(f"No data found for {track_code} on {race_date}. Please verify the track code or date.")
     else:
         st.write(f"Model accuracy on test set: {acc:.2f}")
         for race in data:
