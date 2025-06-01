@@ -17,21 +17,22 @@ headers = {
     "Authorization": auth_header
 }
 
-api_url = "https://api.theracingapi.com/v1/racecards"
+# Filter to only U.S. racecards
+api_url = "https://api.theracingapi.com/v1/racecards?region=US"
 
 response = requests.get(api_url, headers=headers)
 
 if response.status_code == 200:
     data = response.json()
-    races = data.get("races", [])
+    races = data.get("races") or data.get("racecards") or []
     if not races:
-        st.warning("No races found in API response.")
+        st.warning("No U.S. races found in API response.")
         st.subheader("🔎 Raw API Response:")
         st.json(data)
     else:
-        st.success("Races loaded successfully.")
+        st.success("U.S. races loaded successfully.")
         for race in races[:10]:
-            st.subheader(race.get("track_name", "Unknown Track"))
+            st.subheader(race.get("course", "Unknown Track"))
             st.write(race)
 else:
     st.error(f"Failed to fetch data: {response.status_code} - {response.text}")
