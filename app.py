@@ -2,15 +2,15 @@ import streamlit as st
 import requests
 from requests.auth import HTTPBasicAuth
 
-st.title("🏇 UK Racecard Viewer - Test A: Yesterday")
+st.title("🏇 UK Racecard Viewer - Test C: Alt Path")
 API_USERNAME = st.secrets["RACING_API_USERNAME"]
 API_PASSWORD = st.secrets["RACING_API_PASSWORD"]
 
 auth = HTTPBasicAuth(API_USERNAME, API_PASSWORD)
 st.markdown("📅 Testing endpoint for date: **2025-05-31**")
 
-url = "https://api.theracingapi.com/v1/racecards/by-date/2025-05-31"
-st.markdown(f"🔗 Endpoint: `https://api.theracingapi.com/v1/racecards/by-date/2025-05-31`")
+url = "https://api.theracingapi.com/v1/gb/racecards/by-date/2025-05-31"
+st.markdown(f"🔗 Endpoint: `https://api.theracingapi.com/v1/gb/racecards/by-date/2025-05-31`")
 
 resp = requests.get(url, auth=auth)
 if resp.status_code != 200:
