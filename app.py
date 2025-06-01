@@ -29,13 +29,13 @@ if response.status_code == 200:
     else:
         st.success(f"✅ Found {len(courses)} UK racecourses.")
         st.markdown("### 🔍 Sample Raw Data")
-        st.json(courses[:3])  # Show 3 raw course entries
+        st.json(courses[:3])  # Show sample raw entries
 
         table = [
             {
                 "Course": c.get("course", "N/A"),
                 "Region": c.get("region", "N/A"),
-                "ID": c.get("id", "N/A") or c.get("course_id", "N/A")
+                "ID": c.get("id", "N/A")
             }
             for c in courses
         ]
