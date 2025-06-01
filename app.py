@@ -27,7 +27,7 @@ if not courses:
     st.stop()
 
 # Dropdown to select course
-course_map = {{course["course"]: course["id"] for course in courses}}
+course_map = {course["course"]: course["id"] for course in courses}
 selected_course = st.selectbox("Select a UK Racecourse", list(course_map.keys()))
 course_id = course_map[selected_course]
 
@@ -35,22 +35,22 @@ course_id = course_map[selected_course]
 today_str = datetime.today().strftime("%Y-%m-%d")
 
 # Step 2: Fetch racecards for selected course and today
-racecard_url = f"https://api.theracingapi.com/v1/racecards?date={{today_str}}&course_id={{course_id}}"
-st.markdown(f"📅 Fetching races for **{{selected_course}}** on **{{today_str}}**")
+racecard_url = f"https://api.theracingapi.com/v1/racecards?date={today_str}&course_id={course_id}"
+st.markdown(f"📅 Fetching races for **{selected_course}** on **{today_str}**")
 
 race_response = requests.get(racecard_url, headers=headers)
 
 if race_response.status_code != 200:
-    st.error(f"Failed to fetch racecards: {{race_response.status_code}} - {{race_response.text}}")
+    st.error(f"Failed to fetch racecards: {race_response.status_code} - {race_response.text}")
     st.stop()
 
 racecards = race_response.json().get("racecards", [])
 
 if not racecards:
-    st.warning(f"No races found for {{selected_course}} on {{today_str}}.")
+    st.warning(f"No races found for {selected_course} on {today_str}.")
     st.json(race_response.json())
 else:
-    st.success(f"✅ Found {{len(racecards)}} races.")
+    st.success(f"✅ Found {len(racecards)} races.")
     for race in racecards:
         st.subheader(race.get("race_name", "Unnamed Race"))
-        st.write(f"**Off Time:** {{race.get('off_time')}} | **Distance:** {{race.get('distance')}} | **Region:** {{race.get('region')}}")
+        st.write(f"**Off Time:** {race.get('off_time')} | **Distance:** {race.get('distance')} | **Region:** {race.get('region')}")
