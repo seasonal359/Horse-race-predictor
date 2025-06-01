@@ -17,20 +17,22 @@ headers = {
     "Authorization": auth_header
 }
 
-# Filter to only U.S. racecards
-api_url = "https://api.theracingapi.com/v1/racecards?region=US"
+# Pull all racecards (filter region in Python)
+api_url = "https://api.theracingapi.com/v1/racecards"
 
 response = requests.get(api_url, headers=headers)
 
 if response.status_code == 200:
     data = response.json()
-    races = data.get("races") or data.get("racecards") or []
+    all_races = data.get("racecards", [])
+    races = [r for r in all_races if r.get("region") == "US"]
+
     if not races:
         st.warning("No U.S. races found in API response.")
         st.subheader("🔎 Raw API Response:")
         st.json(data)
     else:
-        st.success("U.S. races loaded successfully.")
+        st.success(f"{len(races)} U.S. races loaded successfully.")
         for race in races[:10]:
             st.subheader(race.get("course", "Unknown Track"))
             st.write(race)
