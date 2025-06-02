@@ -1,4 +1,5 @@
-# 🇺🇸 US Thoroughbred Race Viewer (Racing API) - Updated with Track and Date Dropdowns + Entries and Results
+
+# 🇺🇸 US Thoroughbred Race Viewer (Racing API) - Filtered meets with validation
 
 import streamlit as st
 import requests
@@ -58,27 +59,22 @@ date_str = date.strftime("%Y-%m-%d")
 st.markdown("🔍 Fetching race data from The Racing API...")
 meets = fetch_meets(date_str)
 
-if not meets:
-    st.warning("No meets found for selected date.")
+# --- Filter meets with required fields ---
+valid_meets = [m for m in meets if m.get("id") and m.get("location") and m.get("date")]
+
+if not valid_meets:
+    st.warning("No valid race meets found for the selected date.")
     st.stop()
 
-# Build track options with fallback
-track_options = {}
-for meet in meets:
-    label = meet.get("location") or meet.get("track") or meet.get("id")
-    country = meet.get("country", "")
-    track_options[f"{label} ({country})"] = meet
-
+track_options = {
+    f"{meet['location']} ({meet['country']})": meet for meet in valid_meets
+}
 selected_track_label = st.selectbox("Select Track", list(track_options.keys()))
-selected_meet = track_options.get(selected_track_label)
-
-if not selected_meet:
-    st.warning("Selected track not found.")
-    st.stop()
+selected_meet = track_options[selected_track_label]
 
 # --- Display Basic Meet Info ---
-st.subheader(f"📍 {selected_meet.get('location', 'Unknown')} - 🗓 {selected_meet.get('date', date_str)}")
-st.write(f"Meet ID: `{selected_meet.get('id')}` | Country: `{selected_meet.get('country', 'N/A')}`")
+st.subheader(f"📍 {selected_meet.get('location')} - 🗓 {selected_meet.get('date')}")
+st.write(f"Meet ID: `{selected_meet.get('id')}` | Country: `{selected_meet.get('country')}`")
 
 # --- Fetch and Show Entries ---
 if st.checkbox("Show Race Entries"):
