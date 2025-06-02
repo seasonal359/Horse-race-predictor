@@ -62,13 +62,23 @@ if not meets:
     st.warning("No meets found for selected date.")
     st.stop()
 
-track_options = {f"{meet['location']} ({meet['country']})": meet for meet in meets if 'location' in meet}
+# Build track options with fallback
+track_options = {}
+for meet in meets:
+    label = meet.get("location") or meet.get("track") or meet.get("id")
+    country = meet.get("country", "")
+    track_options[f"{label} ({country})"] = meet
+
 selected_track_label = st.selectbox("Select Track", list(track_options.keys()))
-selected_meet = track_options[selected_track_label]
+selected_meet = track_options.get(selected_track_label)
+
+if not selected_meet:
+    st.warning("Selected track not found.")
+    st.stop()
 
 # --- Display Basic Meet Info ---
-st.subheader(f"📍 {selected_meet.get('location')} - 🗓 {selected_meet.get('date')}")
-st.write(f"Meet ID: `{selected_meet.get('id')}` | Country: `{selected_meet.get('country')}`")
+st.subheader(f"📍 {selected_meet.get('location', 'Unknown')} - 🗓 {selected_meet.get('date', date_str)}")
+st.write(f"Meet ID: `{selected_meet.get('id')}` | Country: `{selected_meet.get('country', 'N/A')}`")
 
 # --- Fetch and Show Entries ---
 if st.checkbox("Show Race Entries"):
