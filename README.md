@@ -1,3 +1,3 @@
-# UK Racecard Viewer (Racing API)
+# US Racecard Viewer (Racing API)
 
-Streamlit app to browse live UK horse races using The Racing API.
+Streamlit app to browse live US horse races using The Racing API.
