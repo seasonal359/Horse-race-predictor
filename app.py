@@ -1,1 +1,2 @@
-# Streamlit app for US Race Viewer with entries
+# Placeholder app.py
+print("This is the app.")
