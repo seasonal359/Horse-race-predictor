@@ -1,5 +1,5 @@
 
-# 🇺🇸 US Thoroughbred Race Viewer (Racing API) - Updated Final
+# 🇺🇸 US Thoroughbred Race Viewer (Racing API) - Stable Version
 
 import streamlit as st
 import requests
@@ -38,18 +38,9 @@ def fetch_entries(meet_id):
         return []
     return response.json().get("races", [])
 
-# --- Get Results for a Meet ---
-def fetch_results(meet_id):
-    url = f"https://api.theracingapi.com/v1/north-america/meets/{meet_id}/results"
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        st.error(f"Failed to fetch results: {response.status_code} - {response.text}")
-        return []
-    return response.json().get("races", [])
-
 # --- Streamlit App ---
 st.title("🇺🇸 US Thoroughbred Race Viewer (Racing API)")
-st.markdown("This app fetches North American race meets, entries, and results via The Racing API.")
+st.markdown("This app fetches North American race meets and entries via The Racing API.")
 
 # --- Select Date ---
 date = st.date_input("Select Date", value=datetime.date.today())
@@ -63,10 +54,7 @@ if not meets:
     st.warning("No meets found for selected date.")
     st.stop()
 
-track_options = {
-    f"{meet.get('track_name', 'Unknown')} ({meet.get('country')})": meet
-    for meet in meets if 'track_name' in meet and 'meet_id' in meet
-}
+track_options = {f"{meet.get('track_name', 'Unknown')} ({meet.get('country', 'N/A')})": meet for meet in meets}
 selected_track_label = st.selectbox("Select Track", list(track_options.keys()))
 selected_meet = track_options[selected_track_label]
 
@@ -79,45 +67,12 @@ if st.checkbox("Show Race Entries"):
     races = fetch_entries(selected_meet['meet_id'])
     if races:
         for race in races:
-            st.markdown(f"### Race {race.get('number')}: {race.get('name')}")
+            st.markdown(f"### Race {race.get('number')}: {race.get('name', 'Unknown')}")
             if 'runners' in race:
-                entries = [
-                    {
-                        "Number": runner.get("number"),
-                        "Horse": runner.get("horse"),
-                        "Jockey": runner.get("jockey"),
-                        "Trainer": runner.get("trainer"),
-                        "Odds": runner.get("odds")
-                    }
-                    for runner in race['runners']
-                ]
-                df = pd.DataFrame(entries)
-                st.dataframe(df)
+                df = pd.DataFrame(race['runners'])
+                cols = [col for col in ['number', 'horse', 'jockey', 'trainer', 'odds', 'position'] if col in df.columns]
+                st.dataframe(df[cols])
             else:
                 st.warning("No runners found for this race.")
     else:
         st.info("No race entries available.")
-
-# --- Fetch and Show Results ---
-if st.checkbox("Show Race Results"):
-    results = fetch_results(selected_meet['meet_id'])
-    if results:
-        for race in results:
-            st.markdown(f"### Race {race.get('number')}: {race.get('name')}")
-            if 'results' in race:
-                outcome = [
-                    {
-                        "Number": runner.get("number"),
-                        "Horse": runner.get("horse"),
-                        "Position": runner.get("position"),
-                        "Jockey": runner.get("jockey"),
-                        "Trainer": runner.get("trainer")
-                    }
-                    for runner in race['results']
-                ]
-                df = pd.DataFrame(outcome)
-                st.dataframe(df)
-            else:
-                st.warning("No results found for this race.")
-    else:
-        st.info("No race results available.")
