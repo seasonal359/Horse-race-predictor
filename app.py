@@ -1,88 +1,85 @@
 
-# 🇺🇸 US Thoroughbred Race Viewer (Racing API)
-# Entries Only Version with Improved Field Handling
-
 import streamlit as st
 import requests
 import base64
 import datetime
 import pandas as pd
 
-# --- API Credentials ---
+# --- Auth from Streamlit Secrets ---
 username = st.secrets.get("RACING_API_USERNAME")
 password = st.secrets.get("RACING_API_PASSWORD")
-
 if not username or not password:
     st.error("Missing API credentials in Streamlit secrets.")
     st.stop()
 
-# --- Auth Header ---
-basic_auth = f"{username}:{password}"
-auth_header = base64.b64encode(basic_auth.encode()).decode()
-headers = {
-    "Authorization": f"Basic {auth_header}"
-}
+auth = base64.b64encode(f"{username}:{password}".encode()).decode()
+headers = {"Authorization": f"Basic {auth}"}
 
-# --- Helper: Fetch Meets ---
+# --- Fetch Meets ---
 def fetch_meets(date_str):
     url = f"https://api.theracingapi.com/v1/north-america/meets?date={date_str}"
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        st.error(f"Failed to fetch meets: {response.status_code} - {response.text}")
+    res = requests.get(url, headers=headers)
+    if res.status_code != 200:
+        st.error(f"Failed to fetch meets: {res.status_code} - {res.text}")
         return []
-    return response.json().get("meets", [])
+    return res.json().get("meets", [])
 
-# --- Helper: Fetch Entries ---
+# --- Fetch Entries ---
 def fetch_entries(meet_id):
     url = f"https://api.theracingapi.com/v1/north-america/meets/{meet_id}/entries"
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        st.error(f"Failed to fetch entries: {response.status_code} - {response.text}")
+    res = requests.get(url, headers=headers)
+    if res.status_code != 200:
+        st.error(f"Failed to fetch entries: {res.status_code} - {res.text}")
         return []
-    return response.json().get("races", [])
+    return res.json().get("races", [])
 
-# --- Streamlit App ---
+# --- App UI ---
 st.title("🇺🇸 US Thoroughbred Race Viewer (Racing API)")
 st.markdown("This app fetches North American race meets and entries via The Racing API.")
 
-# --- Select Date ---
 date = st.date_input("Select Date", value=datetime.date.today())
 date_str = date.strftime("%Y-%m-%d")
 
-# --- Fetch Meets ---
+st.markdown("🔍 Fetching race data from The Racing API...")
 meets = fetch_meets(date_str)
 if not meets:
-    st.warning("No meets found for selected date.")
+    st.warning("No meets returned.")
     st.stop()
 
-# --- Select Track ---
-track_options = {f"{m['track_name']} ({m['country']})": m for m in meets}
-selected_label = st.selectbox("Select Track", list(track_options.keys()))
-selected_meet = track_options[selected_label]
+# Build dropdown options
+track_dict = {f"{m['track_name']} ({m['country']})": m for m in meets if 'track_name' in m}
+selected_label = st.selectbox("Select Track", list(track_dict.keys()))
+selected_meet = track_dict[selected_label]
+meet_id = selected_meet['meet_id']
 
-st.markdown(f"📍 **{selected_meet['track_name']}** - 🗓 {selected_meet['date']}")
-st.markdown(f"Meet ID: `{selected_meet['meet_id']}` | Country: `{selected_meet['country']}`")
+st.subheader(f"📍 {selected_meet['track_name']} - 🗓 {selected_meet['date']}")
+st.write(f"Meet ID: `{meet_id}` | Country: `{selected_meet['country']}`")
 
-# --- Fetch and Display Entries ---
-races = fetch_entries(selected_meet['meet_id'])
+# Fetch and display entries
+races = fetch_entries(meet_id)
+if not races:
+    st.info("No races returned.")
+    st.stop()
+
 for race in races:
     race_number = race.get("number", "Unknown")
     race_name = race.get("name", "Unnamed Race")
-    st.subheader(f"Race {race_number}: {race_name}")
+    st.markdown(f"### Race {race_number}: {race_name}")
 
     runners = race.get("runners", [])
-    if runners:
-        df = pd.DataFrame()
-        for runner in runners:
-            df = pd.concat([
-                df,
-                pd.DataFrame([{
-                    "Number": runner.get("number", ""),
-                    "Horse": runner.get("horse", ""),
-                    "Jockey": runner.get("jockey", {}).get("alias", ""),
-                    "Trainer": runner.get("trainer", {}).get("alias", "")
-                }])
-            ])
-        st.dataframe(df)
-    else:
-        st.write("No runners available.")
+    data = []
+    for r in runners:
+        horse_name = r.get("horse", "N/A")
+        jockey = r.get("jockey", {}).get("alias", "N/A")
+        trainer = r.get("trainer", {}).get("alias", "N/A")
+        number = r.get("number", "N/A")
+        odds = r.get("odds", {}).get("decimal", "N/A")
+        data.append({
+            "Number": number,
+            "Horse": horse_name,
+            "Jockey": jockey,
+            "Trainer": trainer,
+            "Odds": odds
+        })
+    df = pd.DataFrame(data)
+    st.dataframe(df)
