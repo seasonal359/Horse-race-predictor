@@ -1,83 +1,66 @@
 
+# 🏇 Real-Time Exotic Wager Overlay Dashboard
+
 import streamlit as st
+import pandas as pd
+import datetime
 import requests
 import base64
-import datetime
-import pandas as pd
 
-# --- Auth Header ---
+# --- Title ---
+st.set_page_config(page_title="Exotic Wager ROI Dashboard", layout="wide")
+st.title("🎯 Exotic Wager Overlay Dashboard")
+st.markdown("Color-coded ROI alerts for **exacta**, **trifecta**, and **superfecta** wagers at select tracks.")
+
+# --- API Auth ---
 username = st.secrets.get("RACING_API_USERNAME")
 password = st.secrets.get("RACING_API_PASSWORD")
 if not username or not password:
-    st.error("Missing API credentials in Streamlit secrets.")
+    st.error("Missing API credentials.")
     st.stop()
 
-auth_header = base64.b64encode(f"{username}:{password}".encode()).decode()
-headers = { "Authorization": f"Basic {auth_header}" }
+auth = base64.b64encode(f"{username}:{password}".encode()).decode()
+headers = {"Authorization": f"Basic {auth}"}
 
-# --- Fetch Meets ---
+# --- Config ---
+TRACKS = {
+    "Saratoga": "SAR",
+    "Laurel Park": "LRL",
+    "Churchill Downs": "CD"
+}
+
 def fetch_meets(date_str):
     url = f"https://api.theracingapi.com/v1/north-america/meets?date={date_str}"
-    r = requests.get(url, headers=headers)
-    if r.status_code != 200:
-        st.error(f"Failed to fetch meets: {r.status_code} - {r.text}")
+    resp = requests.get(url, headers=headers)
+    if resp.status_code != 200:
         return []
-    return r.json().get("meets", [])
+    return resp.json().get("meets", [])
 
-# --- Fetch Entries ---
 def fetch_entries(meet_id):
     url = f"https://api.theracingapi.com/v1/north-america/meets/{meet_id}/entries"
-    r = requests.get(url, headers=headers)
-    if r.status_code != 200:
-        st.error(f"Failed to fetch entries: {r.status_code} - {r.text}")
+    resp = requests.get(url, headers=headers)
+    if resp.status_code != 200:
         return []
-    return r.json().get("races", [])
+    return resp.json().get("races", [])
 
-# --- Streamlit UI ---
-st.title("🇺🇸 US Thoroughbred Race Viewer (Racing API)")
-st.markdown("This app fetches North American race meets and entries via The Racing API.")
+# --- Load Meets and Filter ---
+today = datetime.date.today().strftime("%Y-%m-%d")
+meets = fetch_meets(today)
+meets = [m for m in meets if m.get("track_id") in TRACKS.values()]
 
-date = st.date_input("Select Date", datetime.date.today())
-date_str = date.strftime("%Y-%m-%d")
-
-meets = fetch_meets(date_str)
 if not meets:
-    st.warning("No meets found.")
+    st.warning("No active meets at Saratoga, Laurel Park, or Churchill Downs.")
     st.stop()
 
-track_map = {f"{m['track_name']} ({m['country']})": m for m in meets}
-track_label = st.selectbox("Select Track", list(track_map))
-meet = track_map[track_label]
-
-st.markdown(f"📍 **{meet['track_name']}** - 🗓 {meet['date']}")
-st.code(f"Meet ID: {meet['meet_id']}")
-
-races = fetch_entries(meet['meet_id'])
-if not races:
-    st.warning("No races found.")
-    st.stop()
-
-for race in races:
-    st.markdown(f"### Race {race.get('number', 'Unknown')}: {race.get('name', 'Unnamed Race')}")
-    runners = race.get("runners", [])
-    if not runners:
-        st.info("No runners available.")
-        continue
-
-    rows = []
-    for runner in runners:
-        horse = runner.get("horse", "N/A")
-        num = runner.get("number", "N/A")
-        jockey = runner.get("jockey", {}).get("alias", "N/A")
-        trainer = runner.get("trainer", {}).get("alias", "N/A")
-        odds = runner.get("odds", {}).get("decimal", "N/A")
-        rows.append({
-            "Number": num,
-            "Horse": horse,
-            "Jockey": jockey,
-            "Trainer": trainer,
-            "Odds": odds
-        })
-
-    df = pd.DataFrame(rows)
-    st.dataframe(df)
+# --- Display Wager Opportunities ---
+for meet in meets:
+    st.subheader(f"📍 {meet['track_name']} - {meet['date']}")
+    races = fetch_entries(meet["meet_id"])
+    for race in races:
+        runners = race.get("runners", [])
+        if len(runners) < 6:
+            continue  # not enough for exotic wagering
+        horses = [r.get("horse", {}).get("name", "N/A") for r in runners]
+        st.markdown(f"**Race {race.get('number')}** - {race.get('name') or 'Unnamed'}")
+        st.write("Horses:", ", ".join(horses))
+        st.info("🔍 ROI Estimator Placeholder — Model logic goes here")
