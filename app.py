@@ -1,66 +1,87 @@
 
-# 🏇 Real-Time Exotic Wager Overlay Dashboard
-
+# 🏇 Exotic Wagering Overlay Dashboard - Real-Time (Exacta, Trifecta, Superfecta)
 import streamlit as st
-import pandas as pd
-import datetime
 import requests
 import base64
+import pandas as pd
+import datetime
 
-# --- Title ---
-st.set_page_config(page_title="Exotic Wager ROI Dashboard", layout="wide")
-st.title("🎯 Exotic Wager Overlay Dashboard")
-st.markdown("Color-coded ROI alerts for **exacta**, **trifecta**, and **superfecta** wagers at select tracks.")
-
-# --- API Auth ---
+# --- Auth Setup from Streamlit Secrets ---
 username = st.secrets.get("RACING_API_USERNAME")
 password = st.secrets.get("RACING_API_PASSWORD")
+
 if not username or not password:
-    st.error("Missing API credentials.")
+    st.error("Missing Racing API credentials in Streamlit secrets.")
     st.stop()
 
-auth = base64.b64encode(f"{username}:{password}".encode()).decode()
-headers = {"Authorization": f"Basic {auth}"}
-
-# --- Config ---
-TRACKS = {
-    "Saratoga": "SAR",
-    "Laurel Park": "LRL",
-    "Churchill Downs": "CD"
+auth_header = {
+    "Authorization": "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
 }
 
-def fetch_meets(date_str):
-    url = f"https://api.theracingapi.com/v1/north-america/meets?date={date_str}"
-    resp = requests.get(url, headers=headers)
-    if resp.status_code != 200:
+# --- Fetch Today's Meets from Racing API (North America Add-On) ---
+@st.cache_data(ttl=300)
+def get_meets(date):
+    url = f"https://api.theracingapi.com/v1/north-america/meets?date={date}"
+    r = requests.get(url, headers=auth_header)
+    if r.status_code != 200:
         return []
-    return resp.json().get("meets", [])
+    return r.json().get("meets", [])
 
-def fetch_entries(meet_id):
+# --- Fetch Entries for a Meet ---
+def get_entries(meet_id):
     url = f"https://api.theracingapi.com/v1/north-america/meets/{meet_id}/entries"
-    resp = requests.get(url, headers=headers)
-    if resp.status_code != 200:
+    r = requests.get(url, headers=auth_header)
+    if r.status_code != 200:
         return []
-    return resp.json().get("races", [])
+    return r.json().get("races", [])
 
-# --- Load Meets and Filter ---
-today = datetime.date.today().strftime("%Y-%m-%d")
-meets = fetch_meets(today)
-meets = [m for m in meets if m.get("track_id") in TRACKS.values()]
+# --- UI ---
+st.title("🎯 Exotic Wagering Overlay Dashboard")
+st.markdown("Targeting mispriced **Exacta**, **Trifecta**, and **Superfecta** pools at top U.S. tracks.")
+
+target_tracks = ["Saratoga", "Laurel Park", "Churchill Downs"]
+selected_date = st.date_input("Select Race Date", value=datetime.date.today())
+date_str = selected_date.strftime("%Y-%m-%d")
+
+# --- Fetch Meets ---
+with st.spinner("Fetching available meets..."):
+    meets = get_meets(date_str)
+    meets = [m for m in meets if m["track_name"] in target_tracks]
 
 if not meets:
-    st.warning("No active meets at Saratoga, Laurel Park, or Churchill Downs.")
+    st.warning("No valid meets found for selected date and tracks.")
     st.stop()
 
-# --- Display Wager Opportunities ---
-for meet in meets:
-    st.subheader(f"📍 {meet['track_name']} - {meet['date']}")
-    races = fetch_entries(meet["meet_id"])
-    for race in races:
-        runners = race.get("runners", [])
-        if len(runners) < 6:
-            continue  # not enough for exotic wagering
-        horses = [r.get("horse", {}).get("name", "N/A") for r in runners]
-        st.markdown(f"**Race {race.get('number')}** - {race.get('name') or 'Unnamed'}")
-        st.write("Horses:", ", ".join(horses))
-        st.info("🔍 ROI Estimator Placeholder — Model logic goes here")
+track_options = {f'{m["track_name"]} ({m["country"]})': m for m in meets}
+selected_label = st.selectbox("Select Track", list(track_options.keys()))
+selected_meet = track_options[selected_label]
+
+# --- Fetch Races and Entries ---
+st.subheader(f"📍 {selected_meet['track_name']} on {selected_meet['date']}")
+races = get_entries(selected_meet["meet_id"])
+
+if not races:
+    st.warning("No race entries found.")
+    st.stop()
+
+# --- Simple ROI Model Placeholder ---
+def estimate_overlay(race):
+    if "runners" not in race or not race["runners"]:
+        return []
+    df = pd.DataFrame(race["runners"])
+    df["implied_prob"] = 1 / (df["morning_line_odds"].replace(0, 99))  # Placeholder
+    df["ROI_flag"] = df["implied_prob"] < 0.10
+    return df[df["ROI_flag"] == True][["number", "horse", "jockey", "trainer", "morning_line_odds"]]
+
+# --- Display Races ---
+for race in races:
+    st.markdown(f"### Race {race.get('number') or 'Unknown'}: {race.get('name') or 'Unnamed'}")
+    try:
+        overlay_df = estimate_overlay(race)
+        if not overlay_df.empty:
+            st.success("💡 Potential Overlay Picks Found:")
+            st.dataframe(overlay_df)
+        else:
+            st.info("No overlays found for this race.")
+    except Exception as e:
+        st.error(f"Failed to process race data: {e}")
